@@ -14,5 +14,8 @@ data/raw/
 data/processed/
 *.npz
 
+checkpoints2/
+figures2/
+
 *.log
 training_log.txt

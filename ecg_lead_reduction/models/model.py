@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from config import (
+from ecg_lead_reduction.core.config import (
     CNN_LSTM_FILTERS, CNN_LSTM_KERNEL, DROPOUT_RATE,
     LSTM_DROPOUT, LSTM_HIDDEN, LSTM_LAYERS,
     RESNET_BASE_FILTERS, RESNET_KERNEL_SIZE, RESNET_NUM_BLOCKS,

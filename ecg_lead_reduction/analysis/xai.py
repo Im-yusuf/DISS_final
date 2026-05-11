@@ -7,12 +7,12 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-from config import (
+from ecg_lead_reduction.core.config import (
     FIGURES_DIR, CHECKPOINTS_DIR, PROCESSED_DATA_DIR, PROCESSED_NPZ,
     LEAD_CONFIGS, LEAD_NAMES_12, DEVICE,
     RANDOM_SEED, TEST_SPLIT,
 )
-from model import build_model
+from ecg_lead_reduction.models.model import build_model
 
 
 class IntegratedGradientsECG:
@@ -247,7 +247,7 @@ def plot_lead_importance_comparison(importance_by_config, architecture_name,
 
 
 def generate_xai_figures(num_samples: int = 50):
-    from dataset import load_data
+    from ecg_lead_reduction.data.dataset import load_data
 
     processed_archive_path = PROCESSED_DATA_DIR / PROCESSED_NPZ
     if not processed_archive_path.exists():
@@ -357,5 +357,9 @@ def generate_xai_figures(num_samples: int = 50):
     print("\n  All XAI figures generated.")
 
 
-if __name__ == '__main__':
+def main() -> None:
     generate_xai_figures()
+
+
+if __name__ == '__main__':
+    main()

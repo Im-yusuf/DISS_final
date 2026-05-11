@@ -6,7 +6,7 @@ import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
 
-from config import (
+from ecg_lead_reduction.core.config import (
     BATCH_SIZE,
     DEVICE,
     LEAD_CONFIGS,

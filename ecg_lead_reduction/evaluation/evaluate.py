@@ -8,7 +8,7 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
-from config import LABEL_THRESHOLD
+from ecg_lead_reduction.core.config import LABEL_THRESHOLD
 
 
 def compute_metrics(labels: np.ndarray,

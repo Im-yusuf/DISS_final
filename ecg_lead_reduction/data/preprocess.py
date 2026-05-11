@@ -9,10 +9,7 @@ import wfdb
 from scipy.signal import butter, sosfiltfilt
 from tqdm import tqdm
 
-
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from config import (
+from ecg_lead_reduction.core.config import (
     RAW_DATA_DIRS, PROCESSED_DATA_DIR, PROCESSED_NPZ,
     SIGNAL_LENGTH, SAMPLING_RATE,
     LEAD_NAMES_12, SNOMED_TO_ABBR, MIN_CLASS_COUNT, RANDOM_SEED,

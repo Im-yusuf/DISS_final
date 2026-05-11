@@ -4,7 +4,6 @@ import multiprocessing
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from pathlib import Path
 
 
 sys.stdout.reconfigure(line_buffering=True)
@@ -12,19 +11,17 @@ sys.stdout.reconfigure(line_buffering=True)
 import torch
 import torch.nn as nn
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from config import (
+from ecg_lead_reduction.core.config import (
     ARCHITECTURES, BATCH_SIZE, CHECKPOINTS_DIR, DEVICE,
     LEAD_CONFIGS, PROCESSED_DATA_DIR, PROCESSED_NPZ,
     RANDOM_SEED, RESULTS_DIR,
     TEST_SPLIT, VAL_SPLIT,
 )
-from dataset import compute_pos_weight, get_dataloaders, set_seed
-from evaluate import compare_results, compute_metrics
-from model import build_model
-from train import _make_json_serialisable, _run_epoch, train_model
-from visualise import generate_all_figures
+from ecg_lead_reduction.analysis.visualise import generate_all_figures
+from ecg_lead_reduction.data.dataset import compute_pos_weight, get_dataloaders, set_seed
+from ecg_lead_reduction.evaluation.evaluate import compare_results, compute_metrics
+from ecg_lead_reduction.models.model import build_model
+from ecg_lead_reduction.training.train import _make_json_serialisable, _run_epoch, train_model
 
 
 def _train_worker(worker_job: tuple[str, str, str, int]) -> tuple[str, dict | None]:
@@ -154,7 +151,7 @@ def main() -> None:
     processed_archive_path = PROCESSED_DATA_DIR / PROCESSED_NPZ
     if not processed_archive_path.exists():
         print("\nERROR: Preprocessed data not found.  Run:")
-        print("    python preprocess.py")
+        print("    python scripts/preprocess.py")
         sys.exit(1)
 
 

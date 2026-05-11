@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Patch
 
-from config import FIGURES_DIR, LEAD_CONFIGS
+from ecg_lead_reduction.core.config import FIGURES_DIR, LEAD_CONFIGS
 
 
 def generate_all_figures(summary_json_path: str | Path) -> None:
@@ -30,7 +30,7 @@ def generate_all_figures(summary_json_path: str | Path) -> None:
 
     print("\n  Generating Integrated Gradients XAI figures...")
     try:
-        from xai import generate_xai_figures
+        from ecg_lead_reduction.analysis.xai import generate_xai_figures
         generate_xai_figures()
     except Exception as error:
         print(f"  WARNING: XAI figure generation failed: {error}")

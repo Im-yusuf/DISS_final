@@ -1,3 +1,4 @@
+import argparse
 import json
 import time
 from pathlib import Path
@@ -8,14 +9,14 @@ import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from config import (
+from ecg_lead_reduction.core.config import (
     BATCH_SIZE, CHECKPOINTS_DIR, DEVICE, LEAD_CONFIGS,
     LEARNING_RATE, NUM_EPOCHS, PATIENCE,
     RANDOM_SEED, RESULTS_DIR, TEST_SPLIT, VAL_SPLIT, WEIGHT_DECAY,
 )
-from dataset import compute_pos_weight, get_dataloaders, set_seed
-from evaluate import compute_metrics
-from model import build_model
+from ecg_lead_reduction.data.dataset import compute_pos_weight, get_dataloaders, set_seed
+from ecg_lead_reduction.evaluation.evaluate import compute_metrics
+from ecg_lead_reduction.models.model import build_model
 
 
 class EarlyStopping:
@@ -232,9 +233,7 @@ def _make_json_serialisable(value):
     return value
 
 
-if __name__ == "__main__":
-    import argparse
-
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Train a single ECG classification model")
     parser.add_argument("--arch", type=str, required=True,
@@ -243,3 +242,7 @@ if __name__ == "__main__":
                         choices=list(LEAD_CONFIGS.keys()))
     cli_args = parser.parse_args()
     train_model(cli_args.arch, cli_args.lead_config)
+
+
+if __name__ == "__main__":
+    main()

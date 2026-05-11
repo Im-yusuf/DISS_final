@@ -2,12 +2,13 @@ import torch
 from pathlib import Path
 
 
-PROJECT_ROOT       = Path(__file__).resolve().parent
+PROJECT_ROOT       = Path(__file__).resolve().parents[2]
+ARTIFACTS_DIR      = PROJECT_ROOT / "artifacts"
 RAW_DATA_ROOT      = PROJECT_ROOT / "data" / "raw"
 PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
-RESULTS_DIR        = PROJECT_ROOT / "results2"
-CHECKPOINTS_DIR    = PROJECT_ROOT / "checkpoints2"
-FIGURES_DIR        = PROJECT_ROOT / "figures2"
+RESULTS_DIR        = ARTIFACTS_DIR / "results"
+CHECKPOINTS_DIR    = ARTIFACTS_DIR / "checkpoints"
+FIGURES_DIR        = ARTIFACTS_DIR / "figures"
 
 
 RAW_DATA_DIRS = {
