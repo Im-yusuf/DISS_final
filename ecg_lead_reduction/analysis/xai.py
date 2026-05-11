@@ -1,3 +1,5 @@
+"""Integrated Gradients utilities for ECG lead-importance analysis."""
+
 import json
 import numpy as np
 import torch
@@ -16,9 +18,12 @@ from ecg_lead_reduction.models.model import build_model
 
 
 class IntegratedGradientsECG:
+    """Integrated Gradients attribution helper for batched ECG tensors."""
 
     def __init__(self, model: nn.Module, device: torch.device = DEVICE,
                  n_steps: int = 50):
+        """Store the model and attribution resolution for later calls."""
+
         self.model = model
         self.device = device
         self.n_steps = n_steps
@@ -26,6 +31,8 @@ class IntegratedGradientsECG:
 
     def attribute(self, ecg_signal: torch.Tensor, target_class_index: int,
                   baseline_signal: torch.Tensor = None) -> np.ndarray:
+        """Compute per-sample attributions for one target class."""
+
         ecg_signal = ecg_signal.to(self.device)
         if baseline_signal is None:
             baseline_signal = torch.zeros_like(ecg_signal)
@@ -64,6 +71,8 @@ class IntegratedGradientsECG:
 
 def compute_lead_importance(model, ecg_signal, target_class_index, device=DEVICE,
                             n_steps=30):
+    """Aggregate Integrated Gradients attributions into normalised lead scores."""
+
     integrated_gradients = IntegratedGradientsECG(model, device, n_steps=n_steps)
     attribution = integrated_gradients.attribute(ecg_signal, target_class_index)
 
@@ -78,6 +87,8 @@ def compute_lead_importance(model, ecg_signal, target_class_index, device=DEVICE
 
 def compute_lead_importance_batch(model, signals, label_matrix, target_class_index,
                                   num_samples=50, device=DEVICE):
+    """Average lead-importance scores over positive samples for one class."""
+
     model.eval()
     positive_sample_indices = np.where(label_matrix[:, target_class_index] == 1)[0]
     positive_count = len(positive_sample_indices)
@@ -102,6 +113,8 @@ def compute_lead_importance_batch(model, signals, label_matrix, target_class_ind
 
 def plot_lead_importance_heatmap(importance_by_class, selected_lead_names, experiment_name,
                                  output_file):
+    """Save a class-by-lead heatmap for one trained experiment."""
+
     output_file = Path(output_file)
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -158,6 +171,8 @@ def plot_lead_importance_heatmap(importance_by_class, selected_lead_names, exper
 
 def plot_lead_importance_comparison(importance_by_config, architecture_name,
                                     output_file):
+    """Save a cross-configuration heatmap for shared classes in one architecture."""
+
     output_file = Path(output_file)
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -247,6 +262,8 @@ def plot_lead_importance_comparison(importance_by_config, architecture_name,
 
 
 def generate_xai_figures(num_samples: int = 50):
+    """Generate all checkpoint-based lead-importance figures and JSON exports."""
+
     from ecg_lead_reduction.data.dataset import load_data
 
     processed_archive_path = PROCESSED_DATA_DIR / PROCESSED_NPZ
@@ -358,6 +375,8 @@ def generate_xai_figures(num_samples: int = 50):
 
 
 def main() -> None:
+    """Run the XAI figure-generation CLI."""
+
     generate_xai_figures()
 
 

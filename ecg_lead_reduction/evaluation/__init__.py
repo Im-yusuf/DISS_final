@@ -1,1 +1,1 @@
-"""Evaluation metrics and reporting."""
+"""Evaluation metrics and summary-table helpers."""

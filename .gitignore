@@ -1,21 +1,27 @@
+# macOS and Python-generated files.
 .DS_Store
 __pycache__/
 *.py[cod]
 
+# Local Python environments.
 .venv/
 venv/
 env/
 
+# Editor and assistant metadata.
 .vscode/
 .idea/
 .continue/
 
+# Local datasets and processed caches.
 data/raw/
 data/processed/
 *.npz
 
+# Legacy output folders from the pre-package layout.
 checkpoints2/
 figures2/
 
+# Runtime logs.
 *.log
 training_log.txt

@@ -1,3 +1,5 @@
+"""Metric computation and tabular comparison helpers for experiment outputs."""
+
 import numpy as np
 import pandas as pd
 from scipy.special import expit as sigmoid
@@ -15,6 +17,7 @@ def compute_metrics(labels: np.ndarray,
                     logits: np.ndarray,
                     class_names: list[str] | None = None,
                     threshold: float = LABEL_THRESHOLD) -> dict:
+    """Compute multi-label classification metrics from labels and raw logits."""
 
     probabilities = sigmoid(logits)
     predictions = (probabilities >= threshold).astype(np.float32)
@@ -84,6 +87,8 @@ def compute_metrics(labels: np.ndarray,
 
 def compare_results(results_dict: dict,
                     class_names: list[str] | None = None) -> pd.DataFrame:
+    """Convert per-run result dictionaries into a sorted summary DataFrame."""
+
     summary_rows: list[dict] = []
     for experiment_name, metrics in results_dict.items():
         summary_row = {

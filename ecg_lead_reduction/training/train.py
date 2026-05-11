@@ -1,3 +1,5 @@
+"""Training loop, checkpointing, and single-run CLI for ECG classifiers."""
+
 import argparse
 import json
 import time
@@ -20,8 +22,11 @@ from ecg_lead_reduction.models.model import build_model
 
 
 class EarlyStopping:
+    """Track validation improvement and save the best model checkpoint."""
 
     def __init__(self, patience: int, checkpoint_path: str | Path):
+        """Configure patience and the destination checkpoint path."""
+
         self.patience = patience
         self.checkpoint_path = Path(checkpoint_path)
         self.best_score: float = -1.0
@@ -29,6 +34,8 @@ class EarlyStopping:
         self.best_epoch: int = -1
 
     def step(self, score: float, model: nn.Module, epoch: int) -> bool:
+        """Update the best score and return whether training should stop."""
+
         if score > self.best_score:
             self.best_score = score
             self.best_epoch = epoch
@@ -45,6 +52,8 @@ def _run_epoch(model: nn.Module,
                loss_function: nn.Module,
                optimizer=None,
                device: torch.device = DEVICE):
+    """Run one train or evaluation epoch and collect labels/logits for metrics."""
+
     training_mode = optimizer is not None
     model.train() if training_mode else model.eval()
 
@@ -83,6 +92,8 @@ def _run_epoch(model: nn.Module,
 
 def train_model(arch: str, lead_config: str, tag: str | None = None,
                 device: torch.device = DEVICE) -> dict:
+    """Train and evaluate one architecture/lead-configuration pair."""
+
     set_seed(RANDOM_SEED)
 
     run_name = tag or f"{arch}_{lead_config}"
@@ -220,6 +231,8 @@ def train_model(arch: str, lead_config: str, tag: str | None = None,
 
 
 def _make_json_serialisable(value):
+    """Convert NumPy scalar/array values into JSON-serialisable Python types."""
+
     if isinstance(value, dict):
         return {key: _make_json_serialisable(item_value) for key, item_value in value.items()}
     if isinstance(value, list):
@@ -234,6 +247,8 @@ def _make_json_serialisable(value):
 
 
 def main() -> None:
+    """Parse CLI arguments and run one training job."""
+
     parser = argparse.ArgumentParser(
         description="Train a single ECG classification model")
     parser.add_argument("--arch", type=str, required=True,

@@ -1,1 +1,1 @@
-"""Core configuration and shared constants."""
+"""Configuration constants shared across preprocessing, training, and analysis."""

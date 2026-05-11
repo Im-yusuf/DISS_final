@@ -1,1 +1,1 @@
-"""Training utilities and entry points."""
+"""Training loop and checkpointing utilities."""

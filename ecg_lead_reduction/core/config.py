@@ -1,7 +1,14 @@
+"""Central configuration for data paths, labels, model settings, and training defaults.
+
+All paths are anchored at the repository root so scripts can be run from the root
+without depending on the current module's package directory.
+"""
+
 import torch
 from pathlib import Path
 
 
+# Repository-level paths.
 PROJECT_ROOT       = Path(__file__).resolve().parents[2]
 ARTIFACTS_DIR      = PROJECT_ROOT / "artifacts"
 RAW_DATA_ROOT      = PROJECT_ROOT / "data" / "raw"
@@ -11,6 +18,7 @@ CHECKPOINTS_DIR    = ARTIFACTS_DIR / "checkpoints"
 FIGURES_DIR        = ARTIFACTS_DIR / "figures"
 
 
+# Challenge 2020 training folders used by this project.
 RAW_DATA_DIRS = {
     'cpsc_2018': RAW_DATA_ROOT / "cpsc_2018" / "cpsc_2018",
     'georgia':   RAW_DATA_ROOT / "georgia"  / "georgia",
@@ -24,6 +32,7 @@ RAW_DATA_DIR = RAW_DATA_DIRS['cpsc_2018']
 PROCESSED_NPZ = "combined.npz"
 
 
+# Signal preprocessing parameters.
 SAMPLING_RATE = 500
 SIGNAL_LENGTH = 5000
 
@@ -37,6 +46,7 @@ LEAD_NAMES_12 = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF',
                  'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
 
 
+# SNOMED-CT diagnosis codes mapped to compact label names used in outputs.
 SNOMED_TO_ABBR = {
 
     '164889003': 'AF',
@@ -78,6 +88,7 @@ SNOMED_TO_ABBR = {
 MIN_CLASS_COUNT = 1800
 
 
+# Lead subsets compared in the reduction experiments.
 LEAD_CONFIGS = {
     '12-lead': list(range(12)),
     '6-lead':  [0, 1, 2, 3, 4, 5],
@@ -95,6 +106,7 @@ RANDOM_SEED = 42
 
 ARCHITECTURES = ['resnet', 'cnn_lstm']
 
+# Shared training hyperparameters.
 BATCH_SIZE    = 64
 NUM_EPOCHS    = 50
 LEARNING_RATE = 1e-3
@@ -104,6 +116,7 @@ DROPOUT_RATE  = 0.3
 NUM_WORKERS   = 0
 
 
+# ResNet defaults.
 RESNET_BASE_FILTERS = 32
 RESNET_NUM_BLOCKS   = 4
 RESNET_KERNEL_SIZE  = 15
@@ -111,6 +124,7 @@ USE_SE_BLOCK        = True
 SE_REDUCTION        = 16
 
 
+# CNN-LSTM defaults.
 CNN_LSTM_FILTERS = [32, 64, 128, 256]
 CNN_LSTM_KERNEL  = 15
 LSTM_HIDDEN      = 128
@@ -121,6 +135,7 @@ LSTM_DROPOUT     = 0.3
 LABEL_THRESHOLD = 0.5
 
 
+# Prefer GPU acceleration when available, with Apple Silicon MPS as the fallback.
 DEVICE = torch.device(
     'cuda' if torch.cuda.is_available() else
     'mps'  if torch.backends.mps.is_available() else

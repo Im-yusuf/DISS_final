@@ -1,1 +1,1 @@
-"""Model architectures."""
+"""Model architectures and construction helpers."""

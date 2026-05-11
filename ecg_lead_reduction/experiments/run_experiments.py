@@ -1,3 +1,5 @@
+"""Experiment-grid runner for architecture and lead-configuration comparisons."""
+
 import argparse
 import json
 import multiprocessing
@@ -25,6 +27,8 @@ from ecg_lead_reduction.training.train import _make_json_serialisable, _run_epoc
 
 
 def _train_worker(worker_job: tuple[str, str, str, int]) -> tuple[str, dict | None]:
+    """Run one training job inside a process-pool worker."""
+
     import torch
     import sys
     sys.stdout.reconfigure(line_buffering=True)
@@ -41,6 +45,8 @@ def _train_worker(worker_job: tuple[str, str, str, int]) -> tuple[str, dict | No
 
 
 def run_skip_training(arch: str, lead_config: str) -> dict | None:
+    """Evaluate a saved checkpoint without retraining the model."""
+
     experiment_name  = f"{arch}_{lead_config}"
     checkpoint_path = CHECKPOINTS_DIR / f"best_{experiment_name}.pt"
 
@@ -83,6 +89,8 @@ def run_skip_training(arch: str, lead_config: str) -> dict | None:
 
 
 def _print_delta_table(results_by_run: dict, selected_architectures: list[str]) -> None:
+    """Print performance deltas relative to each architecture's 12-lead baseline."""
+
     print(f"\n{'=' * 70}")
     print("  LEAD REDUCTION — DELTA TABLE (relative to 12-lead baseline)")
     print(f"{'=' * 70}")
@@ -114,6 +122,8 @@ def _print_delta_table(results_by_run: dict, selected_architectures: list[str]) 
 
 
 def main() -> None:
+    """Parse CLI options, run selected experiments, and write summaries/figures."""
+
     parser = argparse.ArgumentParser(
         description="Run ECG lead reduction experiments")
     parser.add_argument("--arch", type=str, choices=["resnet", "cnn_lstm"],
@@ -151,7 +161,7 @@ def main() -> None:
     processed_archive_path = PROCESSED_DATA_DIR / PROCESSED_NPZ
     if not processed_archive_path.exists():
         print("\nERROR: Preprocessed data not found.  Run:")
-        print("    python scripts/preprocess.py")
+        print("    python -m ecg_lead_reduction.data.preprocess")
         sys.exit(1)
 
 

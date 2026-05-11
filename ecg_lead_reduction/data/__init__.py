@@ -1,1 +1,1 @@
-"""Dataset loading and preprocessing modules."""
+"""Data preprocessing and PyTorch dataset helpers."""

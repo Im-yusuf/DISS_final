@@ -1,3 +1,5 @@
+"""Neural network architectures used in the ECG lead-reduction experiments."""
+
 import torch
 import torch.nn as nn
 
@@ -10,8 +12,11 @@ from ecg_lead_reduction.core.config import (
 
 
 class SEBlock1D(nn.Module):
+    """Squeeze-and-Excitation channel attention for 1D feature maps."""
 
     def __init__(self, channels: int, reduction: int = 16):
+        """Create the bottleneck MLP used to rescale feature channels."""
+
         super().__init__()
         hidden_channels = max(channels // reduction, 1)
         self.squeeze = nn.AdaptiveAvgPool1d(1)
@@ -23,6 +28,7 @@ class SEBlock1D(nn.Module):
         )
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
+        """Scale each channel by a learned weight derived from global context."""
 
         batch_size, channel_count, _ = features.shape
         channel_weights = self.squeeze(features).view(batch_size, channel_count)
@@ -31,11 +37,14 @@ class SEBlock1D(nn.Module):
 
 
 class ResidualBlock1D(nn.Module):
+    """Pre-activation residual block for 1D ECG feature extraction."""
 
     def __init__(self, in_channels: int, out_channels: int,
                  kernel_size: int = 15, stride: int = 1,
                  dropout: float = 0.3,
                  use_se: bool = False, se_reduction: int = 16):
+        """Create a residual block with optional downsampling and SE attention."""
+
         super().__init__()
         same_padding = (kernel_size - 1) // 2
 
@@ -64,6 +73,8 @@ class ResidualBlock1D(nn.Module):
             )
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
+        """Apply the residual branch and add the skip connection."""
+
         identity = self.skip(features)
 
         block_output = self.bn1(features)
@@ -81,6 +92,7 @@ class ResidualBlock1D(nn.Module):
 
 
 class ECGResNet(nn.Module):
+    """Compact 1D ResNet classifier for variable lead subsets."""
 
     def __init__(self, num_leads: int, num_classes: int,
                  base_filters: int = RESNET_BASE_FILTERS,
@@ -89,6 +101,8 @@ class ECGResNet(nn.Module):
                  dropout: float = DROPOUT_RATE,
                  use_se: bool = USE_SE_BLOCK,
                  se_reduction: int = SE_REDUCTION):
+        """Build the ResNet backbone and classification head."""
+
         super().__init__()
 
 
@@ -123,6 +137,8 @@ class ECGResNet(nn.Module):
         self._init_weights()
 
     def _init_weights(self) -> None:
+        """Initialise convolutional, batch-normalisation, and linear layers."""
+
         for module in self.modules():
             if isinstance(module, nn.Conv1d):
                 nn.init.kaiming_normal_(module.weight, mode="fan_out",
@@ -136,6 +152,8 @@ class ECGResNet(nn.Module):
                     nn.init.constant_(module.bias, 0.0)
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
+        """Return class logits for a batch shaped `(batch, leads, samples)`."""
+
         features = self.input_conv(features)
         features = self.res_blocks(features)
         features = self.bn_final(features)
@@ -146,6 +164,7 @@ class ECGResNet(nn.Module):
 
 
 class ECGCNNLSTM(nn.Module):
+    """CNN feature extractor followed by a bidirectional LSTM classifier."""
 
     def __init__(self, num_leads: int, num_classes: int,
                  cnn_filters: list[int] | None = None,
@@ -154,6 +173,8 @@ class ECGCNNLSTM(nn.Module):
                  lstm_layers: int = LSTM_LAYERS,
                  lstm_dropout: float = LSTM_DROPOUT,
                  dropout: float = DROPOUT_RATE):
+        """Build the convolutional front-end, recurrent layer, and output head."""
+
         super().__init__()
 
         if cnn_filters is None:
@@ -191,6 +212,8 @@ class ECGCNNLSTM(nn.Module):
         self._init_weights()
 
     def _init_weights(self) -> None:
+        """Initialise convolutional, batch-normalisation, and linear layers."""
+
         for module in self.modules():
             if isinstance(module, nn.Conv1d):
                 nn.init.kaiming_normal_(module.weight, mode="fan_out",
@@ -204,6 +227,8 @@ class ECGCNNLSTM(nn.Module):
                     nn.init.constant_(module.bias, 0.0)
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
+        """Return class logits after temporal pooling over LSTM states."""
+
         features = self.cnn(features)
         features = features.permute(0, 2, 1)
         features, _ = self.lstm(features)
@@ -214,6 +239,8 @@ class ECGCNNLSTM(nn.Module):
 
 def build_model(arch: str, num_leads: int, num_classes: int,
                 **kwargs) -> nn.Module:
+    """Factory for constructing a supported ECG classifier by name."""
+
     if arch == "resnet":
         return ECGResNet(
             num_leads=num_leads,

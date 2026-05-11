@@ -1,1 +1,1 @@
-"""Visualisation and explainability tools."""
+"""Plotting and explainability utilities."""

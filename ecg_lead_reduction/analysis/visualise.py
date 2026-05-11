@@ -1,3 +1,5 @@
+"""Generate comparison plots from saved experiment result summaries."""
+
 import json
 from pathlib import Path
 
@@ -11,6 +13,8 @@ from ecg_lead_reduction.core.config import FIGURES_DIR, LEAD_CONFIGS
 
 
 def generate_all_figures(summary_json_path: str | Path) -> None:
+    """Generate all standard comparison and explainability figures."""
+
     summary_json_path = Path(summary_json_path)
     if not summary_json_path.exists():
         print(f"  WARNING: Summary not found: {summary_json_path}")
@@ -40,6 +44,8 @@ def generate_all_figures(summary_json_path: str | Path) -> None:
 
 def _plot_macro_comparison(results_by_run: dict, metric_key: str,
                            metric_name: str) -> None:
+    """Plot one macro metric for each run in the experiment summary."""
+
     run_names   = sorted(results_by_run.keys())
     metric_values = [results_by_run[run_name].get(metric_key, 0) for run_name in run_names]
 
@@ -75,6 +81,8 @@ def _plot_macro_comparison(results_by_run: dict, metric_key: str,
 
 
 def _plot_per_class_heatmap(results_by_run: dict) -> None:
+    """Plot per-class AUROC values as a run-by-class heatmap."""
+
     run_names = sorted(results_by_run.keys())
     if not run_names:
         return
@@ -122,6 +130,8 @@ def _plot_per_class_heatmap(results_by_run: dict) -> None:
 
 
 def _plot_training_curves(results_by_run: dict) -> None:
+    """Plot training loss and validation AUROC curves when history is available."""
+
     history_by_run = {
         run_name: run_result for run_name, run_result in results_by_run.items()
         if "history" in run_result and run_result["history"]
@@ -158,6 +168,7 @@ def _plot_training_curves(results_by_run: dict) -> None:
 
 
 def _plot_lead_degradation(results_by_run: dict) -> None:
+    """Plot macro AUROC against the number of input leads for each architecture."""
 
     ordered_lead_configs = sorted(LEAD_CONFIGS.keys(),
                              key=lambda k: len(LEAD_CONFIGS[k]),

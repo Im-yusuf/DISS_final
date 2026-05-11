@@ -2,7 +2,7 @@
 
 This repository studies how far a 12-lead ECG can be reduced before classification performance degrades materially. The code trains and compares two deep learning architectures across multiple lead subsets, evaluates the resulting models on a multi-label classification task, and generates both comparison figures and lead-importance visualisations.
 
-The project is organised as a regular Python codebase with a small `scripts/` layer for command-line entry points and an `ecg_lead_reduction/` package for the implementation.
+The project is organised as an importable Python package. Command-line workflows are run directly from package modules with `python -m ...`, so there is no separate script-wrapper layer.
 
 ## What the project does
 
@@ -32,7 +32,6 @@ The project is organised as a regular Python codebase with a small `scripts/` la
 |  |- experiments/
 |  |- models/
 |  \- training/
-|- scripts/
 |- requirements.txt
 \- README.md
 ```
@@ -156,8 +155,8 @@ The standalone PTB-XL release on PhysioNet uses a different structure with `reco
 
 If you want to use the standalone PTB-XL release directly, you would need to change:
 
-- the raw-data path configuration in [ecg_lead_reduction/core/config.py](/Users/yusufyusuf/Desktop/DISS_final/ecg_lead_reduction/core/config.py)
-- the file discovery logic in [ecg_lead_reduction/data/preprocess.py](/Users/yusufyusuf/Desktop/DISS_final/ecg_lead_reduction/data/preprocess.py)
+- the raw-data path configuration in [ecg_lead_reduction/core/config.py](ecg_lead_reduction/core/config.py)
+- the file discovery logic in [ecg_lead_reduction/data/preprocess.py](ecg_lead_reduction/data/preprocess.py)
 
 Important assumptions in the current pipeline:
 
@@ -165,7 +164,7 @@ Important assumptions in the current pipeline:
 - Signals are resampled implicitly by using records that already match the configured sampling setup.
 - Each ECG is padded or truncated to 5000 samples.
 - Labels are extracted from the `# Dx:` line in the WFDB header.
-- SNOMED codes are mapped to short diagnosis abbreviations in [ecg_lead_reduction/core/config.py](/Users/yusufyusuf/Desktop/DISS_final/ecg_lead_reduction/core/config.py).
+- SNOMED codes are mapped to short diagnosis abbreviations in [ecg_lead_reduction/core/config.py](ecg_lead_reduction/core/config.py).
 - Only classes with at least 1800 examples are kept.
 
 ## Environment setup
@@ -197,7 +196,7 @@ Run all commands from the repository root.
 ### 1. Preprocess the raw ECG data
 
 ```bash
-python scripts/preprocess.py
+python -m ecg_lead_reduction.data.preprocess
 ```
 
 This creates:
@@ -207,7 +206,7 @@ This creates:
 Useful option:
 
 ```bash
-python scripts/preprocess.py --force
+python -m ecg_lead_reduction.data.preprocess --force
 ```
 
 Use `--force` to rebuild the processed cache even if it already exists.
@@ -215,8 +214,8 @@ Use `--force` to rebuild the processed cache even if it already exists.
 ### 2. Train one model configuration
 
 ```bash
-python scripts/train.py --arch resnet --lead-config 12-lead
-python scripts/train.py --arch cnn_lstm --lead-config 1-lead
+python -m ecg_lead_reduction.training.train --arch resnet --lead-config 12-lead
+python -m ecg_lead_reduction.training.train --arch cnn_lstm --lead-config 1-lead
 ```
 
 Valid architectures:
@@ -241,7 +240,7 @@ Training outputs are written to:
 ### 3. Run the full experiment grid
 
 ```bash
-python scripts/run_experiments.py
+python -m ecg_lead_reduction.experiments.run_experiments
 ```
 
 This runs all architecture x lead-configuration combinations, builds summary tables, and generates comparison figures.
@@ -249,10 +248,10 @@ This runs all architecture x lead-configuration combinations, builds summary tab
 Useful variants:
 
 ```bash
-python scripts/run_experiments.py --arch resnet
-python scripts/run_experiments.py --lead-config 6-lead
-python scripts/run_experiments.py --skip-training
-python scripts/run_experiments.py --parallel 4
+python -m ecg_lead_reduction.experiments.run_experiments --arch resnet
+python -m ecg_lead_reduction.experiments.run_experiments --lead-config 6-lead
+python -m ecg_lead_reduction.experiments.run_experiments --skip-training
+python -m ecg_lead_reduction.experiments.run_experiments --parallel 4
 ```
 
 Notes:
@@ -264,14 +263,14 @@ Notes:
 ### 4. Regenerate XAI outputs only
 
 ```bash
-python scripts/xai.py
+python -m ecg_lead_reduction.analysis.xai
 ```
 
 This loads saved checkpoints and creates Integrated Gradients lead-importance outputs under `artifacts/figures/xai/`.
 
 ## Lead configurations used in the study
 
-The current lead subsets are defined in [ecg_lead_reduction/core/config.py](/Users/yusufyusuf/Desktop/DISS_final/ecg_lead_reduction/core/config.py):
+The current lead subsets are defined in [ecg_lead_reduction/core/config.py](ecg_lead_reduction/core/config.py):
 
 | Configuration | Leads used |
 | --- | --- |
@@ -284,7 +283,7 @@ The current lead subsets are defined in [ecg_lead_reduction/core/config.py](/Use
 
 ## Preprocessing pipeline
 
-The preprocessing stage in [ecg_lead_reduction/data/preprocess.py](/Users/yusufyusuf/Desktop/DISS_final/ecg_lead_reduction/data/preprocess.py) does the following:
+The preprocessing stage in [ecg_lead_reduction/data/preprocess.py](ecg_lead_reduction/data/preprocess.py) does the following:
 
 1. Scans all supported datasets for WFDB header files.
 2. Reads diagnosis codes from each header.
@@ -299,7 +298,7 @@ The preprocessing stage in [ecg_lead_reduction/data/preprocess.py](/Users/yusufy
 
 ## Data loading and split strategy
 
-The dataset utilities live in [ecg_lead_reduction/data/dataset.py](/Users/yusufyusuf/Desktop/DISS_final/ecg_lead_reduction/data/dataset.py).
+The dataset utilities live in [ecg_lead_reduction/data/dataset.py](ecg_lead_reduction/data/dataset.py).
 
 Key details:
 
@@ -312,7 +311,7 @@ Key details:
 
 ## Models
 
-The model definitions are in [ecg_lead_reduction/models/model.py](/Users/yusufyusuf/Desktop/DISS_final/ecg_lead_reduction/models/model.py).
+The model definitions are in [ecg_lead_reduction/models/model.py](ecg_lead_reduction/models/model.py).
 
 ### ResNet
 
@@ -332,7 +331,7 @@ The model definitions are in [ecg_lead_reduction/models/model.py](/Users/yusufyu
 
 ## Training configuration
 
-The default training loop is implemented in [ecg_lead_reduction/training/train.py](/Users/yusufyusuf/Desktop/DISS_final/ecg_lead_reduction/training/train.py).
+The default training loop is implemented in [ecg_lead_reduction/training/train.py](ecg_lead_reduction/training/train.py).
 
 Current defaults:
 
@@ -355,7 +354,7 @@ The device is selected automatically in this order:
 
 ## Evaluation outputs
 
-The evaluation code is in [ecg_lead_reduction/evaluation/evaluate.py](/Users/yusufyusuf/Desktop/DISS_final/ecg_lead_reduction/evaluation/evaluate.py).
+The evaluation code is in [ecg_lead_reduction/evaluation/evaluate.py](ecg_lead_reduction/evaluation/evaluate.py).
 
 Saved metrics include:
 
@@ -374,7 +373,7 @@ The experiment runner also writes summary files:
 
 ## Figures and XAI outputs
 
-Comparison figures are generated by [ecg_lead_reduction/analysis/visualise.py](/Users/yusufyusuf/Desktop/DISS_final/ecg_lead_reduction/analysis/visualise.py).
+Comparison figures are generated by [ecg_lead_reduction/analysis/visualise.py](ecg_lead_reduction/analysis/visualise.py).
 
 Typical outputs include:
 
@@ -384,7 +383,7 @@ Typical outputs include:
 - `artifacts/figures/training_curves.png`
 - `artifacts/figures/lead_degradation.png`
 
-XAI outputs are generated by [ecg_lead_reduction/analysis/xai.py](/Users/yusufyusuf/Desktop/DISS_final/ecg_lead_reduction/analysis/xai.py) and include:
+XAI outputs are generated by [ecg_lead_reduction/analysis/xai.py](ecg_lead_reduction/analysis/xai.py) and include:
 
 - Per-run lead-importance heatmaps
 - Cross-configuration comparison heatmaps
@@ -392,12 +391,12 @@ XAI outputs are generated by [ecg_lead_reduction/analysis/xai.py](/Users/yusufyu
 
 ## Main code entry points
 
-Use the wrappers in `scripts/` for normal command-line usage:
+Run the package modules directly from the repository root:
 
-- [scripts/preprocess.py](/Users/yusufyusuf/Desktop/DISS_final/scripts/preprocess.py)
-- [scripts/train.py](/Users/yusufyusuf/Desktop/DISS_final/scripts/train.py)
-- [scripts/run_experiments.py](/Users/yusufyusuf/Desktop/DISS_final/scripts/run_experiments.py)
-- [scripts/xai.py](/Users/yusufyusuf/Desktop/DISS_final/scripts/xai.py)
+- `python -m ecg_lead_reduction.data.preprocess`
+- `python -m ecg_lead_reduction.training.train`
+- `python -m ecg_lead_reduction.experiments.run_experiments`
+- `python -m ecg_lead_reduction.analysis.xai`
 
 The implementation lives under `ecg_lead_reduction/`:
 
@@ -411,7 +410,7 @@ The implementation lives under `ecg_lead_reduction/`:
 
 ## Changing defaults
 
-Most project-level settings live in [ecg_lead_reduction/core/config.py](/Users/yusufyusuf/Desktop/DISS_final/ecg_lead_reduction/core/config.py), including:
+Most project-level settings live in [ecg_lead_reduction/core/config.py](ecg_lead_reduction/core/config.py), including:
 
 - data paths
 - sampling rate and signal length
@@ -437,19 +436,19 @@ If you want to change the study setup, this is the first place to edit.
 Run:
 
 ```bash
-python scripts/preprocess.py
+python -m ecg_lead_reduction.data.preprocess
 ```
 
 ### Raw dataset directory not found
 
-Check that the folder names under `data/raw/` match the paths configured in [ecg_lead_reduction/core/config.py](/Users/yusufyusuf/Desktop/DISS_final/ecg_lead_reduction/core/config.py).
+Check that the folder names under `data/raw/` match the paths configured in [ecg_lead_reduction/core/config.py](ecg_lead_reduction/core/config.py).
 
 ### Want to rerun evaluation from saved checkpoints only
 
 Use:
 
 ```bash
-python scripts/run_experiments.py --skip-training
+python -m ecg_lead_reduction.experiments.run_experiments --skip-training
 ```
 
 ### Want to regenerate only the figures/XAI outputs
@@ -457,11 +456,11 @@ python scripts/run_experiments.py --skip-training
 Run:
 
 ```bash
-python scripts/xai.py
+python -m ecg_lead_reduction.analysis.xai
 ```
 
 or rerun the experiment summary/plot stage with saved checkpoints:
 
 ```bash
-python scripts/run_experiments.py --skip-training
+python -m ecg_lead_reduction.experiments.run_experiments --skip-training
 ```

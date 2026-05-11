@@ -1,1 +1,1 @@
-"""ECG lead reduction project package."""
+"""Importable package for ECG lead-reduction experiments."""

@@ -1,3 +1,5 @@
+"""Preprocess Challenge-style WFDB ECG folders into a single compressed cache."""
+
 import argparse
 import random
 import sys
@@ -18,11 +20,15 @@ from ecg_lead_reduction.core.config import (
 
 
 def set_seed(seed: int) -> None:
+    """Seed Python and NumPy for deterministic preprocessing choices."""
+
     random.seed(seed)
     np.random.seed(seed)
 
 
 def parse_header_dx(header_path: Path) -> list[str]:
+    """Extract SNOMED diagnosis codes from the `# Dx:` line of a WFDB header."""
+
     diagnosis_codes: list[str] = []
     with open(header_path, "r") as file_handle:
         for line in file_handle:
@@ -34,6 +40,8 @@ def parse_header_dx(header_path: Path) -> list[str]:
 
 
 def get_lead_reorder_indices(wfdb_record: wfdb.Record) -> list[int] | None:
+    """Return indices that reorder a WFDB record into the standard 12-lead order."""
+
     signal_names = [s.strip() for s in wfdb_record.sig_name]
     lead_order_indices: list[int] = []
     for lead_name in LEAD_NAMES_12:
@@ -45,6 +53,8 @@ def get_lead_reorder_indices(wfdb_record: wfdb.Record) -> list[int] | None:
 
 
 def pad_or_truncate(ecg_signal: np.ndarray, target_length: int) -> np.ndarray:
+    """Force an ECG signal to the configured sample length along the time axis."""
+
     signal_length = ecg_signal.shape[1]
     if signal_length >= target_length:
         return ecg_signal[:, :target_length]
@@ -58,6 +68,7 @@ def bandpass_filter(ecg_signal: np.ndarray,
                     low_cut_hz: float = FILTER_LOW_HZ,
                     high_cut_hz: float = FILTER_HIGH_HZ,
                     filter_order: int = FILTER_ORDER) -> np.ndarray:
+    """Apply a zero-phase Butterworth band-pass filter independently per lead."""
 
     nyquist_hz = sampling_rate_hz / 2.0
     filter_sos = butter(filter_order, [low_cut_hz / nyquist_hz, high_cut_hz / nyquist_hz],
@@ -71,6 +82,8 @@ def bandpass_filter(ecg_signal: np.ndarray,
 
 
 def normalize_signal(ecg_signal: np.ndarray) -> np.ndarray:
+    """Standardise each lead to zero mean and unit variance when possible."""
+
     for channel_index in range(ecg_signal.shape[0]):
         mean_value  = ecg_signal[channel_index].mean()
         std_value = ecg_signal[channel_index].std()
@@ -82,6 +95,7 @@ def normalize_signal(ecg_signal: np.ndarray) -> np.ndarray:
 
 
 def main() -> None:
+    """Run the preprocessing CLI and write `combined.npz` to processed data."""
 
     parser = argparse.ArgumentParser(
         description="Preprocess multi-dataset 12-lead ECG data into .npz cache")

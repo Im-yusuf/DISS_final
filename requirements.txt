@@ -1,8 +1,15 @@
+# Deep learning backend.
 torch>=2.0.0
+
+# ECG/WFDB data loading and signal processing.
 wfdb>=4.1.0
-numpy>=1.24.0
 scipy>=1.10.0
+
+# Numeric computing, evaluation, and tabular summaries.
+numpy>=1.24.0
 scikit-learn>=1.3.0
-matplotlib>=3.7.0
 pandas>=2.0.0
+
+# Plotting and command-line progress reporting.
+matplotlib>=3.7.0
 tqdm>=4.65.0

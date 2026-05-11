@@ -1,3 +1,5 @@
+"""Dataset loading, splitting, augmentation, and class-weight utilities."""
+
 import random
 from pathlib import Path
 
@@ -21,6 +23,8 @@ from ecg_lead_reduction.core.config import (
 
 
 def set_seed(seed: int) -> None:
+    """Seed Python, NumPy, and PyTorch generators for repeatable experiments."""
+
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -32,9 +36,12 @@ _MAX_SHIFT_SAMPLES = SAMPLING_RATE // 2
 
 
 class ECGDataset(Dataset):
+    """PyTorch dataset that selects a lead subset and optionally augments signals."""
 
     def __init__(self, signals: np.ndarray, labels: np.ndarray,
                  lead_config: str = "12-lead", augment: bool = False):
+        """Create a dataset view for one configured lead subset."""
+
         lead_indices = LEAD_CONFIGS[lead_config]
 
         self.signals = signals[:, lead_indices, :]
@@ -42,6 +49,8 @@ class ECGDataset(Dataset):
         self.augment = augment
 
     def __getitem__(self, sample_index: int) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return one ECG tensor and its multi-label target vector."""
+
         ecg_signal = self.signals[sample_index].copy()
         target_vector  = self.labels[sample_index]
 
@@ -63,10 +72,14 @@ class ECGDataset(Dataset):
                 torch.tensor(target_vector,  dtype=torch.float32))
 
     def __len__(self) -> int:
+        """Return the number of labelled ECG records in this dataset split."""
+
         return len(self.labels)
 
 
 def compute_pos_weight(labels: np.ndarray) -> torch.Tensor:
+    """Compute clipped positive-class weights for multi-label BCE training."""
+
     positive_counts = labels.sum(axis=0)
     negative_counts = len(labels) - positive_counts
     positive_weights = np.where(positive_counts > 0, negative_counts / positive_counts, 1.0)
@@ -75,6 +88,8 @@ def compute_pos_weight(labels: np.ndarray) -> torch.Tensor:
 
 
 def load_data(npz_path: Path | None = None):
+    """Load processed signals, labels, class names, and record IDs from disk."""
+
     if npz_path is None:
         npz_path = PROCESSED_DATA_DIR / PROCESSED_NPZ
 
@@ -94,12 +109,15 @@ def get_dataloaders(lead_config: str,
                     val_split: float = VAL_SPLIT,
                     seed: int = RANDOM_SEED,
                     npz_path: Path | None = None):
+    """Build train, validation, and test loaders for one lead configuration."""
+
     signals, labels, class_names, num_classes, _ = load_data(npz_path)
 
     sample_count = len(labels)
     sample_indices = np.arange(sample_count)
 
 
+    # Multi-label rows are stratified by their first active class approximation.
     stratification_labels = labels.argmax(axis=1)
 
 
