@@ -1,0 +1,121 @@
+{
+  "lead_config": "2-lead",
+  "architecture": "cnn_lstm",
+  "lead_names": [
+    "I",
+    "II"
+  ],
+  "xai_method": "integrated_gradients",
+  "lead_importance_per_class": {
+    "AF": {
+      "importance": [
+        0.524000346660614,
+        0.47599971294403076
+      ],
+      "lead_names": [
+        "I",
+        "II"
+      ]
+    },
+    "IAVB": {
+      "importance": [
+        0.5204959511756897,
+        0.4795040488243103
+      ],
+      "lead_names": [
+        "I",
+        "II"
+      ]
+    },
+    "LAD": {
+      "importance": [
+        0.5350152254104614,
+        0.46498480439186096
+      ],
+      "lead_names": [
+        "I",
+        "II"
+      ]
+    },
+    "LAnFB": {
+      "importance": [
+        0.5480527281761169,
+        0.4519473612308502
+      ],
+      "lead_names": [
+        "I",
+        "II"
+      ]
+    },
+    "NSR": {
+      "importance": [
+        0.563449501991272,
+        0.4365505576133728
+      ],
+      "lead_names": [
+        "I",
+        "II"
+      ]
+    },
+    "PAC": {
+      "importance": [
+        0.5404531359672546,
+        0.45954692363739014
+      ],
+      "lead_names": [
+        "I",
+        "II"
+      ]
+    },
+    "RBBB": {
+      "importance": [
+        0.52009516954422,
+        0.47990477085113525
+      ],
+      "lead_names": [
+        "I",
+        "II"
+      ]
+    },
+    "SB": {
+      "importance": [
+        0.5459387898445129,
+        0.4540611505508423
+      ],
+      "lead_names": [
+        "I",
+        "II"
+      ]
+    },
+    "STD": {
+      "importance": [
+        0.5361495614051819,
+        0.4638504087924957
+      ],
+      "lead_names": [
+        "I",
+        "II"
+      ]
+    },
+    "STach": {
+      "importance": [
+        0.5194271802902222,
+        0.48057278990745544
+      ],
+      "lead_names": [
+        "I",
+        "II"
+      ]
+    },
+    "TAb": {
+      "importance": [
+        0.5410118699073792,
+        0.45898810029029846
+      ],
+      "lead_names": [
+        "I",
+        "II"
+      ]
+    }
+  }
+}

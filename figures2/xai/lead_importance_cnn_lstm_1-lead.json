@@ -1,0 +1,98 @@
+{
+  "lead_config": "1-lead",
+  "architecture": "cnn_lstm",
+  "lead_names": [
+    "II"
+  ],
+  "xai_method": "integrated_gradients",
+  "lead_importance_per_class": {
+    "AF": {
+      "importance": [
+        1.0
+      ],
+      "lead_names": [
+        "II"
+      ]
+    },
+    "IAVB": {
+      "importance": [
+        1.0
+      ],
+      "lead_names": [
+        "II"
+      ]
+    },
+    "LAD": {
+      "importance": [
+        1.0
+      ],
+      "lead_names": [
+        "II"
+      ]
+    },
+    "LAnFB": {
+      "importance": [
+        1.0
+      ],
+      "lead_names": [
+        "II"
+      ]
+    },
+    "NSR": {
+      "importance": [
+        1.0
+      ],
+      "lead_names": [
+        "II"
+      ]
+    },
+    "PAC": {
+      "importance": [
+        1.0
+      ],
+      "lead_names": [
+        "II"
+      ]
+    },
+    "RBBB": {
+      "importance": [
+        1.0
+      ],
+      "lead_names": [
+        "II"
+      ]
+    },
+    "SB": {
+      "importance": [
+        1.0
+      ],
+      "lead_names": [
+        "II"
+      ]
+    },
+    "STD": {
+      "importance": [
+        1.0
+      ],
+      "lead_names": [
+        "II"
+      ]
+    },
+    "STach": {
+      "importance": [
+        1.0
+      ],
+      "lead_names": [
+        "II"
+      ]
+    },
+    "TAb": {
+      "importance": [
+        1.0
+      ],
+      "lead_names": [
+        "II"
+      ]
+    }
+  }
+}
