@@ -1,1 +1,1 @@
-"""Training loop and checkpointing utilities."""
+"""Training loop and checkpointing utilities for individual model runs."""

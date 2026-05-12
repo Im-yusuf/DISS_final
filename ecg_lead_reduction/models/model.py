@@ -1,4 +1,9 @@
-"""Neural network architectures used in the ECG lead-reduction experiments."""
+"""Neural network architectures used in the ECG lead-reduction experiments.
+
+Both architectures accept tensors shaped `(batch, leads, samples)` and return
+one logit per diagnosis class. The number of input leads is supplied at runtime
+so the same model definitions support all configured lead subsets.
+"""
 
 import torch
 import torch.nn as nn
@@ -12,7 +17,11 @@ from ecg_lead_reduction.core.config import (
 
 
 class SEBlock1D(nn.Module):
-    """Squeeze-and-Excitation channel attention for 1D feature maps."""
+    """Squeeze-and-Excitation channel attention for 1D feature maps.
+
+    The block learns per-channel gates from a global temporal summary and uses
+    them to rescale convolutional feature maps.
+    """
 
     def __init__(self, channels: int, reduction: int = 16):
         """Create the bottleneck MLP used to rescale feature channels."""
@@ -31,13 +40,18 @@ class SEBlock1D(nn.Module):
         """Scale each channel by a learned weight derived from global context."""
 
         batch_size, channel_count, _ = features.shape
+        # Pool over time first so gating depends on channel-level context, not position.
         channel_weights = self.squeeze(features).view(batch_size, channel_count)
         channel_weights = self.excitation(channel_weights).view(batch_size, channel_count, 1)
         return features * channel_weights
 
 
 class ResidualBlock1D(nn.Module):
-    """Pre-activation residual block for 1D ECG feature extraction."""
+    """Pre-activation residual block for 1D ECG feature extraction.
+
+    The skip path is projected only when the temporal stride or channel count
+    changes, keeping identity connections cheap for same-shape blocks.
+    """
 
     def __init__(self, in_channels: int, out_channels: int,
                  kernel_size: int = 15, stride: int = 1,
@@ -64,6 +78,7 @@ class ResidualBlock1D(nn.Module):
         self.se = SEBlock1D(out_channels, se_reduction) if use_se else nn.Identity()
 
 
+        # Match the residual branch shape whenever downsampling or expansion occurs.
         self.skip: nn.Module = nn.Identity()
         if stride != 1 or in_channels != out_channels:
             self.skip = nn.Sequential(
@@ -77,6 +92,7 @@ class ResidualBlock1D(nn.Module):
 
         identity = self.skip(features)
 
+        # Pre-activation keeps normalisation and non-linearity ahead of convolutions.
         block_output = self.bn1(features)
         block_output = self.relu1(block_output)
         block_output = self.conv1(block_output)
@@ -92,7 +108,11 @@ class ResidualBlock1D(nn.Module):
 
 
 class ECGResNet(nn.Module):
-    """Compact 1D ResNet classifier for variable lead subsets."""
+    """Compact 1D ResNet classifier for variable lead subsets.
+
+    The network progressively increases feature channels every two residual
+    blocks and uses global average pooling before the multi-label output layer.
+    """
 
     def __init__(self, num_leads: int, num_classes: int,
                  base_filters: int = RESNET_BASE_FILTERS,
@@ -106,6 +126,7 @@ class ECGResNet(nn.Module):
         super().__init__()
 
 
+        # A single wide input stem is enough before the residual stack refines features.
         self.input_conv = nn.Sequential(
             nn.Conv1d(num_leads, base_filters, kernel_size=kernel_size,
                       padding=(kernel_size - 1) // 2, bias=False),
@@ -114,6 +135,7 @@ class ECGResNet(nn.Module):
         )
 
 
+        # Downsample every second block to widen the receptive field efficiently.
         residual_layers: list[nn.Module] = []
         input_channels = base_filters
         for block_index in range(num_blocks):
@@ -164,7 +186,11 @@ class ECGResNet(nn.Module):
 
 
 class ECGCNNLSTM(nn.Module):
-    """CNN feature extractor followed by a bidirectional LSTM classifier."""
+    """CNN feature extractor followed by a bidirectional LSTM classifier.
+
+    Convolutional pooling shortens the sequence before the LSTM so recurrent
+    modelling remains tractable for 5000-sample ECG windows.
+    """
 
     def __init__(self, num_leads: int, num_classes: int,
                  cnn_filters: list[int] | None = None,
@@ -181,6 +207,7 @@ class ECGCNNLSTM(nn.Module):
             cnn_filters = list(CNN_LSTM_FILTERS)
 
 
+        # The CNN front-end converts raw leads into a shorter feature sequence.
         feature_layers: list[nn.Module] = []
         input_channels = num_leads
         for filter_count in cnn_filters:
@@ -230,8 +257,10 @@ class ECGCNNLSTM(nn.Module):
         """Return class logits after temporal pooling over LSTM states."""
 
         features = self.cnn(features)
+        # LSTM expects `(batch, time, features)` rather than `(batch, channels, time)`.
         features = features.permute(0, 2, 1)
         features, _ = self.lstm(features)
+        # Mean-pool over time to get one record-level representation per ECG.
         features = features.mean(dim=1)
         features = self.dropout(features)
         return self.fc(features)
@@ -239,7 +268,11 @@ class ECGCNNLSTM(nn.Module):
 
 def build_model(arch: str, num_leads: int, num_classes: int,
                 **kwargs) -> nn.Module:
-    """Factory for constructing a supported ECG classifier by name."""
+    """Factory for constructing a supported ECG classifier by name.
+
+    Keyword arguments override architecture defaults from `core.config`, which
+    keeps experiment scripts simple while still allowing targeted ablations.
+    """
 
     if arch == "resnet":
         return ECGResNet(

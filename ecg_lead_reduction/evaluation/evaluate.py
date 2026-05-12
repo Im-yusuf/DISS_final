@@ -1,4 +1,9 @@
-"""Metric computation and tabular comparison helpers for experiment outputs."""
+"""Metric computation and tabular comparison helpers for experiment outputs.
+
+The training loop stores raw logits, then this module converts them into
+probabilities/predictions and reports both macro and per-class multi-label
+classification metrics.
+"""
 
 import numpy as np
 import pandas as pd
@@ -17,8 +22,27 @@ def compute_metrics(labels: np.ndarray,
                     logits: np.ndarray,
                     class_names: list[str] | None = None,
                     threshold: float = LABEL_THRESHOLD) -> dict:
-    """Compute multi-label classification metrics from labels and raw logits."""
+    """Compute multi-label classification metrics from labels and raw logits.
 
+    Parameters
+    ----------
+    labels:
+        Ground-truth multi-hot matrix shaped `(samples, classes)`.
+    logits:
+        Raw model outputs with the same shape as `labels`.
+    class_names:
+        Optional class labels used to name per-class metric keys.
+    threshold:
+        Probability threshold used to convert sigmoid outputs to predictions.
+
+    Returns
+    -------
+    dict
+        Rounded macro, sample-wise, exact-match, specificity, and per-class
+        metrics suitable for JSON serialisation.
+    """
+
+    # Keep models free to emit logits; thresholding happens only at evaluation time.
     probabilities = sigmoid(logits)
     predictions = (probabilities >= threshold).astype(np.float32)
 
@@ -29,6 +53,7 @@ def compute_metrics(labels: np.ndarray,
     metrics: dict = {}
 
 
+    # AUROC is undefined for a class unless both positive and negative samples exist.
     auroc_scores: list[float] = []
     for class_index in range(num_classes):
         positive_count = labels[:, class_index].sum()
@@ -40,6 +65,7 @@ def compute_metrics(labels: np.ndarray,
         else:
             metrics[f"auroc_{class_names[class_index]}"] = 0.0
 
+    # Macro AUROC averages only over classes where the score is defined.
     metrics["auroc_macro"] = (round(float(np.mean(auroc_scores)), 4)
                               if auroc_scores else 0.0)
 
@@ -55,6 +81,7 @@ def compute_metrics(labels: np.ndarray,
         recall_value  = recall_score(labels[:, class_index], predictions[:, class_index], zero_division=0)
 
 
+        # Specificity is true-negative rate and complements recall for negatives.
         true_negatives = float(((1 - labels[:, class_index]) * (1 - predictions[:, class_index])).sum())
         false_positives = float(((1 - labels[:, class_index]) * predictions[:, class_index]).sum())
         specificity_value = true_negatives / (true_negatives + false_positives) if (true_negatives + false_positives) > 0 else 0.0
@@ -69,16 +96,19 @@ def compute_metrics(labels: np.ndarray,
         specificity_scores.append(specificity_value)
 
 
+    # Thresholded per-class metrics are averaged uniformly across diagnosis classes.
     metrics["f1_macro"]          = round(float(np.mean(f1_scores)), 4)
     metrics["precision_macro"]   = round(float(np.mean(precision_scores)), 4)
     metrics["recall_macro"]      = round(float(np.mean(recall_scores)), 4)
     metrics["specificity_macro"] = round(float(np.mean(specificity_scores)), 4)
 
 
+    # Exact-match accuracy is intentionally strict: every label must match.
     exact_match_accuracy = np.all(predictions == labels, axis=1).mean()
     metrics["exact_match_accuracy"] = round(float(exact_match_accuracy), 4)
 
 
+    # Sample-wise F1 rewards partially correct multi-label predictions per ECG.
     sample_f1_score = f1_score(labels, predictions, average="samples", zero_division=0)
     metrics["f1_samples"] = round(float(sample_f1_score), 4)
 
@@ -87,8 +117,13 @@ def compute_metrics(labels: np.ndarray,
 
 def compare_results(results_dict: dict,
                     class_names: list[str] | None = None) -> pd.DataFrame:
-    """Convert per-run result dictionaries into a sorted summary DataFrame."""
+    """Convert per-run result dictionaries into a sorted summary DataFrame.
 
+    The resulting table is written to CSV by the experiment runner and is also
+    used for console summaries and comparison figures.
+    """
+
+    # Flatten each run dictionary so downstream CSV export and plotting stay simple.
     summary_rows: list[dict] = []
     for experiment_name, metrics in results_dict.items():
         summary_row = {

@@ -1,4 +1,9 @@
-"""Generate comparison plots from saved experiment result summaries."""
+"""Generate comparison plots from saved experiment result summaries.
+
+The experiment runner writes `results_summary.json`; this module turns that
+summary into publication-style PNG figures under `artifacts/figures/` and then
+attempts to generate optional XAI plots from saved checkpoints.
+"""
 
 import json
 from pathlib import Path
@@ -13,7 +18,11 @@ from ecg_lead_reduction.core.config import FIGURES_DIR, LEAD_CONFIGS
 
 
 def generate_all_figures(summary_json_path: str | Path) -> None:
-    """Generate all standard comparison and explainability figures."""
+    """Generate all standard comparison and explainability figures.
+
+    Missing summaries are treated as a warning so the experiment runner can fail
+    gracefully without producing partially initialised plotting errors.
+    """
 
     summary_json_path = Path(summary_json_path)
     if not summary_json_path.exists():
@@ -25,6 +34,7 @@ def generate_all_figures(summary_json_path: str | Path) -> None:
 
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
+    # Keep the standard report order stable so reruns overwrite a predictable figure set.
     _plot_macro_comparison(results_by_run, "auroc_macro", "Macro AUROC")
     _plot_macro_comparison(results_by_run, "f1_macro", "Macro F1")
     _plot_per_class_heatmap(results_by_run)
@@ -44,8 +54,13 @@ def generate_all_figures(summary_json_path: str | Path) -> None:
 
 def _plot_macro_comparison(results_by_run: dict, metric_key: str,
                            metric_name: str) -> None:
-    """Plot one macro metric for each run in the experiment summary."""
+    """Plot one macro metric for each run in the experiment summary.
 
+    Bar colours distinguish architectures while the x-axis labels keep the full
+    run names so lead configuration remains visible in exported figures.
+    """
+
+    # Sort by run key so figure ordering matches summary-table ordering across reruns.
     run_names   = sorted(results_by_run.keys())
     metric_values = [results_by_run[run_name].get(metric_key, 0) for run_name in run_names]
 
@@ -81,7 +96,11 @@ def _plot_macro_comparison(results_by_run: dict, metric_key: str,
 
 
 def _plot_per_class_heatmap(results_by_run: dict) -> None:
-    """Plot per-class AUROC values as a run-by-class heatmap."""
+    """Plot per-class AUROC values as a run-by-class heatmap.
+
+    If stored `class_names` are unavailable, class labels are inferred from
+    `auroc_<class>` keys in the first result entry.
+    """
 
     run_names = sorted(results_by_run.keys())
     if not run_names:
@@ -91,6 +110,7 @@ def _plot_per_class_heatmap(results_by_run: dict) -> None:
     first_result = results_by_run[run_names[0]]
     class_names = first_result.get("class_names", [])
     if not class_names:
+        # Older result files may not store `class_names`, so infer them from metric keys.
         class_names = sorted(
             k.replace("auroc_", "") for k in first_result
             if k.startswith("auroc_") and k != "auroc_macro"
@@ -130,8 +150,12 @@ def _plot_per_class_heatmap(results_by_run: dict) -> None:
 
 
 def _plot_training_curves(results_by_run: dict) -> None:
-    """Plot training loss and validation AUROC curves when history is available."""
+    """Plot training loss and validation AUROC curves when history is available.
 
+    Skip-training runs do not include history, so this figure is optional.
+    """
+
+    # Skip runs that came from checkpoint-only evaluation because they have no training trace.
     history_by_run = {
         run_name: run_result for run_name, run_result in results_by_run.items()
         if "history" in run_result and run_result["history"]
@@ -168,13 +192,18 @@ def _plot_training_curves(results_by_run: dict) -> None:
 
 
 def _plot_lead_degradation(results_by_run: dict) -> None:
-    """Plot macro AUROC against the number of input leads for each architecture."""
+    """Plot macro AUROC against the number of input leads for each architecture.
+
+    The x-axis is inverted so the figure reads naturally from full 12-lead input
+    to the smallest lead subset.
+    """
 
     ordered_lead_configs = sorted(LEAD_CONFIGS.keys(),
                              key=lambda k: len(LEAD_CONFIGS[k]),
                              reverse=True)
 
 
+    # Infer the architecture family from the saved run key convention.
     architectures = sorted({run_name.rsplit("_", 1)[0] for run_name in results_by_run
                     if "_" in run_name})
     if not architectures:

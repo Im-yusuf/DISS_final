@@ -1,1 +1,1 @@
-"""Model architectures and construction helpers."""
+"""Model architectures and construction helpers for ECG classification."""

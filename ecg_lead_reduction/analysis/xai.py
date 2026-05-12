@@ -1,4 +1,9 @@
-"""Integrated Gradients utilities for ECG lead-importance analysis."""
+"""Integrated Gradients utilities for ECG lead-importance analysis.
+
+The functions load trained checkpoints, compute class-specific attributions on
+held-out positive samples, aggregate attribution magnitudes by lead, and export
+both heatmaps and JSON score files.
+"""
 
 import json
 import numpy as np
@@ -18,7 +23,11 @@ from ecg_lead_reduction.models.model import build_model
 
 
 class IntegratedGradientsECG:
-    """Integrated Gradients attribution helper for batched ECG tensors."""
+    """Integrated Gradients attribution helper for batched ECG tensors.
+
+    Inputs are expected to be shaped `(batch, leads, samples)`. Attribution is
+    computed for one target class at a time against a zero baseline by default.
+    """
 
     def __init__(self, model: nn.Module, device: torch.device = DEVICE,
                  n_steps: int = 50):
@@ -31,7 +40,11 @@ class IntegratedGradientsECG:
 
     def attribute(self, ecg_signal: torch.Tensor, target_class_index: int,
                   baseline_signal: torch.Tensor = None) -> np.ndarray:
-        """Compute per-sample attributions for one target class."""
+        """Compute per-sample attributions for one target class.
+
+        Returns an array shaped `(leads, samples)` containing signed Integrated
+        Gradients attributions for the requested class logit.
+        """
 
         ecg_signal = ecg_signal.to(self.device)
         if baseline_signal is None:
@@ -42,11 +55,13 @@ class IntegratedGradientsECG:
         interpolation_steps = torch.linspace(0, 1, self.n_steps + 1, device=self.device)
         interpolation_steps = interpolation_steps.view(-1, 1, 1, 1)
 
+        # Integrated Gradients follows a straight-line path from baseline to input.
         signal_delta = ecg_signal - baseline_signal
         interpolated_signals = baseline_signal + interpolation_steps * signal_delta
         interpolated_signals = interpolated_signals.squeeze(1)
 
 
+        # Chunk interpolation steps to avoid large temporary tensors on GPU/MPS.
         batch_chunk_size = 16
         gradient_batches = []
 
@@ -61,6 +76,7 @@ class IntegratedGradientsECG:
         gradient_path = torch.cat(gradient_batches, dim=0)
 
 
+        # Trapezoidal averaging approximates the path integral from baseline to input.
         average_gradients = (gradient_path[:-1] + gradient_path[1:]).mean(dim=0) / 2
 
 
@@ -71,7 +87,11 @@ class IntegratedGradientsECG:
 
 def compute_lead_importance(model, ecg_signal, target_class_index, device=DEVICE,
                             n_steps=30):
-    """Aggregate Integrated Gradients attributions into normalised lead scores."""
+    """Aggregate Integrated Gradients attributions into normalised lead scores.
+
+    Absolute attribution values are averaged over time and normalised to sum to
+    one, making scores comparable across lead subsets for the same sample.
+    """
 
     integrated_gradients = IntegratedGradientsECG(model, device, n_steps=n_steps)
     attribution = integrated_gradients.attribute(ecg_signal, target_class_index)
@@ -87,7 +107,27 @@ def compute_lead_importance(model, ecg_signal, target_class_index, device=DEVICE
 
 def compute_lead_importance_batch(model, signals, label_matrix, target_class_index,
                                   num_samples=50, device=DEVICE):
-    """Average lead-importance scores over positive samples for one class."""
+    """Average lead-importance scores over positive samples for one class.
+
+    Parameters
+    ----------
+    model:
+        Trained classifier in evaluation mode.
+    signals:
+        Test signals already reduced to the selected lead subset.
+    label_matrix:
+        Multi-hot labels aligned with `signals`.
+    target_class_index:
+        Class column used to select positive samples and target the logit.
+    num_samples:
+        Maximum number of positive samples used for attribution.
+
+    Returns
+    -------
+    tuple[np.ndarray | None, int]
+        Mean normalised lead importance and the available positive count. The
+        importance array is `None` when no positives exist for the class.
+    """
 
     model.eval()
     positive_sample_indices = np.where(label_matrix[:, target_class_index] == 1)[0]
@@ -97,6 +137,7 @@ def compute_lead_importance_batch(model, signals, label_matrix, target_class_ind
         return None, 0
 
     if positive_count > num_samples:
+        # Sample deterministically so repeated runs produce stable importance summaries.
         rng = np.random.RandomState(RANDOM_SEED)
         selected_indices = rng.choice(positive_sample_indices, num_samples, replace=False)
     else:
@@ -113,7 +154,11 @@ def compute_lead_importance_batch(model, signals, label_matrix, target_class_ind
 
 def plot_lead_importance_heatmap(importance_by_class, selected_lead_names, experiment_name,
                                  output_file):
-    """Save a class-by-lead heatmap for one trained experiment."""
+    """Save a class-by-lead heatmap for one trained experiment.
+
+    `importance_by_class` maps condition names to normalised lead-score arrays;
+    classes with `None` values are omitted from the heatmap.
+    """
 
     output_file = Path(output_file)
     output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -140,6 +185,7 @@ def plot_lead_importance_heatmap(importance_by_class, selected_lead_names, exper
     axis.set_ylabel('Condition', fontsize=11)
 
 
+    # Convert checkpoint-style run names into readable architecture/config labels.
     run_parts = experiment_name.split('_')
     if run_parts[0] == 'cnn':
         architecture_label = 'CNN-LSTM'
@@ -156,6 +202,7 @@ def plot_lead_importance_heatmap(importance_by_class, selected_lead_names, exper
     colorbar.set_label('Importance Score')
 
 
+    # Write exact values into the cells so the PNG still carries numeric detail.
     for row_index in range(heatmap_values.shape[0]):
         for column_index in range(heatmap_values.shape[1]):
             cell_value = heatmap_values[row_index, column_index]
@@ -171,7 +218,11 @@ def plot_lead_importance_heatmap(importance_by_class, selected_lead_names, exper
 
 def plot_lead_importance_comparison(importance_by_config, architecture_name,
                                     output_file):
-    """Save a cross-configuration heatmap for shared classes in one architecture."""
+    """Save a cross-configuration heatmap for shared classes in one architecture.
+
+    Missing leads are shown as grey cells so reduced configurations can be
+    compared on a common 12-lead axis.
+    """
 
     output_file = Path(output_file)
     output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -182,6 +233,7 @@ def plot_lead_importance_comparison(importance_by_config, architecture_name,
         return
 
 
+    # Compare only classes that have attribution data in at least two configs.
     condition_counts = {}
     for lead_config_name in available_configs:
         for condition_name, importance_values in importance_by_config[lead_config_name].items():
@@ -214,6 +266,7 @@ def plot_lead_importance_comparison(importance_by_config, architecture_name,
             lead_indices = LEAD_CONFIGS[lead_config_name]
             importance_values = importance_by_config[lead_config_name].get(condition_name)
             if importance_values is not None:
+                # Place reduced-config scores back onto the shared 12-lead axis.
                 for column_index, lead_index in enumerate(lead_indices):
                     heatmap_values[r, lead_index] = importance_values[column_index]
 
@@ -262,7 +315,11 @@ def plot_lead_importance_comparison(importance_by_config, architecture_name,
 
 
 def generate_xai_figures(num_samples: int = 50):
-    """Generate all checkpoint-based lead-importance figures and JSON exports."""
+    """Generate all checkpoint-based lead-importance figures and JSON exports.
+
+    The function mirrors the test split used in training, loads every saved
+    `best_*.pt` checkpoint, and writes per-run plus cross-configuration outputs.
+    """
 
     from ecg_lead_reduction.data.dataset import load_data
 
@@ -282,6 +339,7 @@ def generate_xai_figures(num_samples: int = 50):
         random_state=RANDOM_SEED,
         stratify=all_labels.argmax(axis=1),
     )
+    # Mirror the same deterministic split logic used by dataset loading/training.
     test_signals = all_signals[test_indices]
     test_labels  = all_labels[test_indices]
 
@@ -289,6 +347,7 @@ def generate_xai_figures(num_samples: int = 50):
     xai_output_dir.mkdir(parents=True, exist_ok=True)
 
 
+    # Accumulate per-run scores so architecture-level comparison plots can follow.
     importance_by_architecture = {}
 
     for checkpoint_file in sorted(CHECKPOINTS_DIR.glob("best_*.pt")):
@@ -330,6 +389,7 @@ def generate_xai_figures(num_samples: int = 50):
             )
             if importance_values is not None:
                 importance_by_class[class_name] = importance_values
+                # Print the top leads so CLI runs provide a quick qualitative summary.
                 ranked_leads = sorted(zip(selected_lead_names, importance_values), key=lambda sample_tensor: -sample_tensor[1])
                 top_leads_text = ', '.join([f"{n}={v:.3f}" for n, v in ranked_leads[:3]])
                 print(f"    {class_name:>6} ({positive_count:>3} pos): top -> {top_leads_text}")

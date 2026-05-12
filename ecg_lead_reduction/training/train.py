@@ -1,4 +1,9 @@
-"""Training loop, checkpointing, and single-run CLI for ECG classifiers."""
+"""Training loop, checkpointing, and single-run CLI for ECG classifiers.
+
+The module trains one `(architecture, lead_config)` pair at a time, saves the
+best checkpoint by validation AUROC, evaluates on the held-out test split, and
+writes a JSON result file for downstream comparison plots.
+"""
 
 import argparse
 import json
@@ -22,7 +27,11 @@ from ecg_lead_reduction.models.model import build_model
 
 
 class EarlyStopping:
-    """Track validation improvement and save the best model checkpoint."""
+    """Track validation improvement and save the best model checkpoint.
+
+    Validation macro AUROC is the stopping criterion because it is threshold
+    independent and better reflects ranking quality for imbalanced classes.
+    """
 
     def __init__(self, patience: int, checkpoint_path: str | Path):
         """Configure patience and the destination checkpoint path."""
@@ -34,13 +43,17 @@ class EarlyStopping:
         self.best_epoch: int = -1
 
     def step(self, score: float, model: nn.Module, epoch: int) -> bool:
-        """Update the best score and return whether training should stop."""
+        """Update the best score and return whether training should stop.
+
+        Returns `True` only after `patience` consecutive non-improving epochs.
+        """
 
         if score > self.best_score:
             self.best_score = score
             self.best_epoch = epoch
             self.counter = 0
             self.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+            # Save weights only; model structure is recreated from config at load time.
             torch.save(model.state_dict(), self.checkpoint_path)
             return False
         self.counter += 1
@@ -52,7 +65,11 @@ def _run_epoch(model: nn.Module,
                loss_function: nn.Module,
                optimizer=None,
                device: torch.device = DEVICE):
-    """Run one train or evaluation epoch and collect labels/logits for metrics."""
+    """Run one train or evaluation epoch and collect labels/logits for metrics.
+
+    Passing an optimizer enables training mode and gradient updates; omitting it
+    switches to evaluation mode under `torch.no_grad()`.
+    """
 
     training_mode = optimizer is not None
     model.train() if training_mode else model.eval()
@@ -62,6 +79,7 @@ def _run_epoch(model: nn.Module,
     logit_batches: list[np.ndarray] = []
     batch_count = 0
 
+    # Share the forward/metric collection path while changing only gradient mode.
     grad_context = torch.enable_grad() if training_mode else torch.no_grad()
     with grad_context:
         for signal_batch, label_batch in data_loader:
@@ -76,11 +94,13 @@ def _run_epoch(model: nn.Module,
                 batch_loss.backward()
 
 
+                # Clip gradients to reduce occasional instability from long ECG traces.
                 nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
 
             total_loss += batch_loss.item()
             batch_count  += 1
+            # Keep CPU copies so metric computation stays outside autograd/device state.
             label_batches.append(label_batch.cpu().numpy())
             logit_batches.append(batch_logits.cpu().detach().numpy())
 
@@ -92,7 +112,24 @@ def _run_epoch(model: nn.Module,
 
 def train_model(arch: str, lead_config: str, tag: str | None = None,
                 device: torch.device = DEVICE) -> dict:
-    """Train and evaluate one architecture/lead-configuration pair."""
+    """Train and evaluate one architecture/lead-configuration pair.
+
+    Parameters
+    ----------
+    arch:
+        Architecture name accepted by `build_model`.
+    lead_config:
+        Key from `LEAD_CONFIGS` selecting the input leads.
+    tag:
+        Optional output-name override used by orchestration code.
+    device:
+        PyTorch device used for training and evaluation.
+
+    Returns
+    -------
+    dict
+        Test metrics, training history, and run metadata written to JSON.
+    """
 
     set_seed(RANDOM_SEED)
 
@@ -109,6 +146,7 @@ def train_model(arch: str, lead_config: str, tag: str | None = None,
     )
 
 
+    # Positive-class weights compensate for diagnosis imbalance in multi-label BCE.
     positive_weights = compute_pos_weight(train_labels).to(device)
     print(f"  Classes ({num_classes}): {class_names}")
     print(f"  Pos weights: {positive_weights.cpu().numpy().round(2)}")
@@ -123,6 +161,7 @@ def train_model(arch: str, lead_config: str, tag: str | None = None,
     loss_function = nn.BCEWithLogitsLoss(pos_weight=positive_weights)
     optimizer = AdamW(model.parameters(), lr=LEARNING_RATE,
                       weight_decay=WEIGHT_DECAY)
+    # Validation AUROC drives LR decay because it matches the early-stopping signal.
     lr_scheduler = ReduceLROnPlateau(optimizer, mode="max", factor=0.5,
                                   patience=5)
 
@@ -163,8 +202,10 @@ def train_model(arch: str, lead_config: str, tag: str | None = None,
             "lr":              learning_rate,
             "epoch_time_s":    round(epoch_elapsed, 1),
         }
+        # History is persisted so figure generation can plot learning curves later.
         history.append(history_entry)
 
+        # The checkpoint saved here is reloaded before final test evaluation.
         should_stop = early_stopper.step(validation_auroc, model, epoch)
         new_best = (early_stopper.counter == 0)
         print(f"  Epoch {epoch:>3d}/{NUM_EPOCHS} | "
@@ -187,6 +228,7 @@ def train_model(arch: str, lead_config: str, tag: str | None = None,
     model.load_state_dict(
         torch.load(checkpoint_path, map_location=device, weights_only=True))
 
+    # Final metrics are always reported from the best checkpoint, not the last epoch.
     _, test_labels, test_logits = _run_epoch(
         model, test_loader, loss_function, device=device)
     test_results = compute_metrics(test_labels, test_logits, class_names)
@@ -233,6 +275,7 @@ def train_model(arch: str, lead_config: str, tag: str | None = None,
 def _make_json_serialisable(value):
     """Convert NumPy scalar/array values into JSON-serialisable Python types."""
 
+    # Results mix Python scalars, NumPy values, lists, and arrays from metric code.
     if isinstance(value, dict):
         return {key: _make_json_serialisable(item_value) for key, item_value in value.items()}
     if isinstance(value, list):

@@ -1,4 +1,9 @@
-"""Dataset loading, splitting, augmentation, and class-weight utilities."""
+"""Dataset loading, splitting, augmentation, and class-weight utilities.
+
+The processed `.npz` cache stores full 12-lead signals. This module selects the
+configured lead subset at dataset construction time so the same cache can serve
+all reduction experiments.
+"""
 
 import random
 from pathlib import Path
@@ -36,7 +41,19 @@ _MAX_SHIFT_SAMPLES = SAMPLING_RATE // 2
 
 
 class ECGDataset(Dataset):
-    """PyTorch dataset that selects a lead subset and optionally augments signals."""
+    """PyTorch dataset that selects a lead subset and optionally augments signals.
+
+    Parameters
+    ----------
+    signals:
+        Array shaped `(records, 12, samples)` from the processed cache.
+    labels:
+        Multi-hot target matrix shaped `(records, classes)`.
+    lead_config:
+        Key from `LEAD_CONFIGS` describing which ECG leads should be exposed.
+    augment:
+        Whether to apply lightweight training-time noise, scaling, and shifts.
+    """
 
     def __init__(self, signals: np.ndarray, labels: np.ndarray,
                  lead_config: str = "12-lead", augment: bool = False):
@@ -55,6 +72,8 @@ class ECGDataset(Dataset):
         target_vector  = self.labels[sample_index]
 
         if self.augment:
+
+            # Small perturbations improve robustness without changing the label.
 
             noise_sample  = np.random.normal(0.0, 0.02, ecg_signal.shape).astype(np.float32)
             ecg_signal = ecg_signal + noise_sample
@@ -78,7 +97,11 @@ class ECGDataset(Dataset):
 
 
 def compute_pos_weight(labels: np.ndarray) -> torch.Tensor:
-    """Compute clipped positive-class weights for multi-label BCE training."""
+    """Compute clipped positive-class weights for multi-label BCE training.
+
+    The resulting tensor is passed to `BCEWithLogitsLoss` so rare classes
+    contribute more strongly while extremely large weights are capped.
+    """
 
     positive_counts = labels.sum(axis=0)
     negative_counts = len(labels) - positive_counts
@@ -88,7 +111,18 @@ def compute_pos_weight(labels: np.ndarray) -> torch.Tensor:
 
 
 def load_data(npz_path: Path | None = None):
-    """Load processed signals, labels, class names, and record IDs from disk."""
+    """Load processed signals, labels, class names, and record IDs from disk.
+
+    Parameters
+    ----------
+    npz_path:
+        Optional explicit cache path. Defaults to `data/processed/combined.npz`.
+
+    Returns
+    -------
+    tuple
+        `(signals, labels, class_names, num_classes, record_ids)` from the cache.
+    """
 
     if npz_path is None:
         npz_path = PROCESSED_DATA_DIR / PROCESSED_NPZ
@@ -109,7 +143,11 @@ def get_dataloaders(lead_config: str,
                     val_split: float = VAL_SPLIT,
                     seed: int = RANDOM_SEED,
                     npz_path: Path | None = None):
-    """Build train, validation, and test loaders for one lead configuration."""
+    """Build train, validation, and test loaders for one lead configuration.
+
+    The split is deterministic for a fixed seed and uses each sample's first
+    active label as a practical stratification proxy for multi-label targets.
+    """
 
     signals, labels, class_names, num_classes, _ = load_data(npz_path)
 

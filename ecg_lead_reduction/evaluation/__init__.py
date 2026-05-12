@@ -1,1 +1,1 @@
-"""Evaluation metrics and summary-table helpers."""
+"""Evaluation metrics and summary-table helpers for saved experiment outputs."""

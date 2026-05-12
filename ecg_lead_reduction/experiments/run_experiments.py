@@ -1,4 +1,9 @@
-"""Experiment-grid runner for architecture and lead-configuration comparisons."""
+"""Experiment-grid runner for architecture and lead-configuration comparisons.
+
+This CLI coordinates the full study: it selects requested architecture/lead
+combinations, trains or evaluates checkpoints, writes summary JSON/CSV files,
+prints comparison tables, and regenerates figures.
+"""
 
 import argparse
 import json
@@ -27,7 +32,11 @@ from ecg_lead_reduction.training.train import _make_json_serialisable, _run_epoc
 
 
 def _train_worker(worker_job: tuple[str, str, str, int]) -> tuple[str, dict | None]:
-    """Run one training job inside a process-pool worker."""
+    """Run one training job inside a process-pool worker.
+
+    The worker receives a serialisable tuple so the spawned process can rebuild
+    the device and thread configuration without sharing parent process state.
+    """
 
     import torch
     import sys
@@ -36,6 +45,7 @@ def _train_worker(worker_job: tuple[str, str, str, int]) -> tuple[str, dict | No
     torch.set_num_threads(thread_count)
     experiment_name = f"{arch}_{lead_config}"
     try:
+        # Train inside the worker so model/device state never crosses process boundaries.
         worker_result = train_model(arch, lead_config,
                              device=torch.device(device_name))
         return experiment_name, worker_result
@@ -45,7 +55,11 @@ def _train_worker(worker_job: tuple[str, str, str, int]) -> tuple[str, dict | No
 
 
 def run_skip_training(arch: str, lead_config: str) -> dict | None:
-    """Evaluate a saved checkpoint without retraining the model."""
+    """Evaluate a saved checkpoint without retraining the model.
+
+    This path is useful after checkpoints already exist and the user only needs
+    refreshed result summaries or figures.
+    """
 
     experiment_name  = f"{arch}_{lead_config}"
     checkpoint_path = CHECKPOINTS_DIR / f"best_{experiment_name}.pt"
@@ -70,6 +84,7 @@ def run_skip_training(arch: str, lead_config: str) -> dict | None:
     positive_weights = compute_pos_weight(train_labels).to(DEVICE)
     loss_function  = nn.BCEWithLogitsLoss(pos_weight=positive_weights)
 
+    # Reuse the normal evaluation path so skip-training metrics match trained runs.
     _, test_labels, test_logits = _run_epoch(
         model, test_data_loader, loss_function, device=DEVICE)
     test_results = compute_metrics(test_labels, test_logits, class_names)
@@ -89,7 +104,10 @@ def run_skip_training(arch: str, lead_config: str) -> dict | None:
 
 
 def _print_delta_table(results_by_run: dict, selected_architectures: list[str]) -> None:
-    """Print performance deltas relative to each architecture's 12-lead baseline."""
+    """Print performance deltas relative to each architecture's 12-lead baseline.
+
+    Deltas help quantify the degradation introduced by each reduced lead set.
+    """
 
     print(f"\n{'=' * 70}")
     print("  LEAD REDUCTION — DELTA TABLE (relative to 12-lead baseline)")
@@ -158,6 +176,7 @@ def main() -> None:
     print(f"{'=' * 70}")
 
 
+    # The experiment grid depends on the shared processed cache generated first.
     processed_archive_path = PROCESSED_DATA_DIR / PROCESSED_NPZ
     if not processed_archive_path.exists():
         print("\nERROR: Preprocessed data not found.  Run:")
@@ -166,6 +185,7 @@ def main() -> None:
 
 
     if not cli_args.skip_training:
+        # Avoid retraining a fully completed grid when the user reruns the command.
         all_checkpoints_exist = all(
             (CHECKPOINTS_DIR / f"best_{a}_{lead_config_name}.pt").exists()
             for a, lead_config_name in experiment_grid
@@ -182,6 +202,7 @@ def main() -> None:
     if cli_args.parallel > 1 and not cli_args.skip_training:
 
 
+        # Spawned workers avoid sharing accelerator context from the parent.
         import torch as _torch
         mps_available = _torch.backends.mps.is_available()
         worker_device_name = "cpu" if mps_available else str(DEVICE)
@@ -219,6 +240,7 @@ def main() -> None:
             if run_results is not None:
                 results_by_run[experiment_name] = run_results
                 if class_names is None:
+                    # Class order is shared across runs because all use the same cache.
                     class_names = run_results.get("class_names", [])
 
     experiment_duration = time.time() - experiments_start_time
@@ -228,6 +250,7 @@ def main() -> None:
         sys.exit(1)
 
 
+    # Persist both machine-readable JSON and spreadsheet-friendly CSV summaries.
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     summary_json_path = RESULTS_DIR / "results_summary.json"
     with open(summary_json_path, "w") as f:

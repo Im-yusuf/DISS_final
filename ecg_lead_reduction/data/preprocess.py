@@ -1,4 +1,9 @@
-"""Preprocess Challenge-style WFDB ECG folders into a single compressed cache."""
+"""Preprocess Challenge-style WFDB ECG folders into a single compressed cache.
+
+The CLI performs two passes over the raw headers. The first pass decides which
+diagnosis classes have enough examples to keep; the second pass loads matching
+signals, standardises them, builds multi-hot labels, and writes `combined.npz`.
+"""
 
 import argparse
 import random
@@ -27,7 +32,11 @@ def set_seed(seed: int) -> None:
 
 
 def parse_header_dx(header_path: Path) -> list[str]:
-    """Extract SNOMED diagnosis codes from the `# Dx:` line of a WFDB header."""
+    """Extract SNOMED diagnosis codes from the `# Dx:` line of a WFDB header.
+
+    Missing or empty diagnosis lines return an empty list so callers can skip
+    unsupported records cleanly.
+    """
 
     diagnosis_codes: list[str] = []
     with open(header_path, "r") as file_handle:
@@ -40,7 +49,11 @@ def parse_header_dx(header_path: Path) -> list[str]:
 
 
 def get_lead_reorder_indices(wfdb_record: wfdb.Record) -> list[int] | None:
-    """Return indices that reorder a WFDB record into the standard 12-lead order."""
+    """Return indices that reorder a WFDB record into the standard 12-lead order.
+
+    Some WFDB records list the same leads in different orders. Returning `None`
+    marks records that cannot provide the complete standard 12-lead set.
+    """
 
     signal_names = [s.strip() for s in wfdb_record.sig_name]
     lead_order_indices: list[int] = []
@@ -53,7 +66,11 @@ def get_lead_reorder_indices(wfdb_record: wfdb.Record) -> list[int] | None:
 
 
 def pad_or_truncate(ecg_signal: np.ndarray, target_length: int) -> np.ndarray:
-    """Force an ECG signal to the configured sample length along the time axis."""
+    """Force an ECG signal to the configured sample length along the time axis.
+
+    Signals longer than `target_length` are cropped from the start; shorter
+    signals are zero-padded at the end so all model inputs share one shape.
+    """
 
     signal_length = ecg_signal.shape[1]
     if signal_length >= target_length:
@@ -68,13 +85,18 @@ def bandpass_filter(ecg_signal: np.ndarray,
                     low_cut_hz: float = FILTER_LOW_HZ,
                     high_cut_hz: float = FILTER_HIGH_HZ,
                     filter_order: int = FILTER_ORDER) -> np.ndarray:
-    """Apply a zero-phase Butterworth band-pass filter independently per lead."""
+    """Apply a zero-phase Butterworth band-pass filter independently per lead.
+
+    The default passband keeps the ECG morphology used by the classifiers while
+    reducing baseline wander and high-frequency noise.
+    """
 
     nyquist_hz = sampling_rate_hz / 2.0
     filter_sos = butter(filter_order, [low_cut_hz / nyquist_hz, high_cut_hz / nyquist_hz],
                  btype="band", output="sos")
 
 
+    # Filter each lead separately to avoid mixing information across channels.
     filtered_signal = np.empty_like(ecg_signal)
     for channel_index in range(ecg_signal.shape[0]):
         filtered_signal[channel_index] = sosfiltfilt(filter_sos, ecg_signal[channel_index])
@@ -82,7 +104,11 @@ def bandpass_filter(ecg_signal: np.ndarray,
 
 
 def normalize_signal(ecg_signal: np.ndarray) -> np.ndarray:
-    """Standardise each lead to zero mean and unit variance when possible."""
+    """Standardise each lead to zero mean and unit variance when possible.
+
+    Flat leads are set to zero to avoid amplifying numerical noise when the
+    standard deviation is effectively zero.
+    """
 
     for channel_index in range(ecg_signal.shape[0]):
         mean_value  = ecg_signal[channel_index].mean()
@@ -138,6 +164,7 @@ def main() -> None:
         snomed_codes = parse_header_dx(header_path)
 
 
+        # Collapse duplicate SNOMED mappings so each class appears once per record.
         diagnosis_labels: set[str] = set()
         for code in snomed_codes:
             if code in SNOMED_TO_ABBR:
@@ -158,6 +185,7 @@ def main() -> None:
         print(f"  {abbr:>8s}: {class_count:>5d}")
 
 
+    # Keep only classes with enough support for stable training/evaluation.
     class_names = sorted(
         [abbr for abbr, class_count in diagnosis_counts.items()
          if class_count >= MIN_CLASS_COUNT]
@@ -208,6 +236,7 @@ def main() -> None:
             continue
 
 
+        # WFDB loads samples x leads; models expect leads x samples.
         ecg_signal = wfdb_record.p_signal[:, lead_indices].T.astype(np.float32)
 
 
@@ -226,6 +255,7 @@ def main() -> None:
         ecg_signal = normalize_signal(ecg_signal)
 
 
+        # Multi-label targets are stored as one binary vector per record.
         label_vector = np.zeros(num_classes, dtype=np.float32)
         for abbr in diagnosis_labels:
             if abbr in class_to_index:

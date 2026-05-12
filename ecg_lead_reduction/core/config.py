@@ -1,7 +1,10 @@
-"""Central configuration for data paths, labels, model settings, and training defaults.
+"""Central configuration for paths, labels, lead subsets, and training defaults.
 
-All paths are anchored at the repository root so scripts can be run from the root
-without depending on the current module's package directory.
+The constants in this module are shared across preprocessing, model building,
+training, evaluation, and plotting. Keeping them in one place makes the
+experiment pipeline reproducible and keeps the command-line entry points light.
+All paths are resolved from the repository root so `python -m ...` works
+consistently from the project root without hard-coding absolute machine paths.
 """
 
 import torch
@@ -9,6 +12,7 @@ from pathlib import Path
 
 
 # Repository-level paths.
+# Generated artifacts live outside the package itself so runs do not mix code and outputs.
 PROJECT_ROOT       = Path(__file__).resolve().parents[2]
 ARTIFACTS_DIR      = PROJECT_ROOT / "artifacts"
 RAW_DATA_ROOT      = PROJECT_ROOT / "data" / "raw"
@@ -19,6 +23,7 @@ FIGURES_DIR        = ARTIFACTS_DIR / "figures"
 
 
 # Challenge 2020 training folders used by this project.
+# Each path points at the nested folder structure described in the README.
 RAW_DATA_DIRS = {
     'cpsc_2018': RAW_DATA_ROOT / "cpsc_2018" / "cpsc_2018",
     'georgia':   RAW_DATA_ROOT / "georgia"  / "georgia",
@@ -26,6 +31,7 @@ RAW_DATA_DIRS = {
 }
 
 
+# Compatibility alias retained for code paths that expect a single raw-data root.
 RAW_DATA_DIR = RAW_DATA_DIRS['cpsc_2018']
 
 
@@ -33,6 +39,7 @@ PROCESSED_NPZ = "combined.npz"
 
 
 # Signal preprocessing parameters.
+# All records are normalised onto the same temporal grid for batching.
 SAMPLING_RATE = 500
 SIGNAL_LENGTH = 5000
 
@@ -47,6 +54,7 @@ LEAD_NAMES_12 = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF',
 
 
 # SNOMED-CT diagnosis codes mapped to compact label names used in outputs.
+# Several source codes intentionally collapse to the same clinical abbreviation.
 SNOMED_TO_ABBR = {
 
     '164889003': 'AF',
@@ -89,6 +97,7 @@ MIN_CLASS_COUNT = 1800
 
 
 # Lead subsets compared in the reduction experiments.
+# Indices refer to positions in `LEAD_NAMES_12`.
 LEAD_CONFIGS = {
     '12-lead': list(range(12)),
     '6-lead':  [0, 1, 2, 3, 4, 5],
@@ -99,6 +108,7 @@ LEAD_CONFIGS = {
 }
 
 
+# Dataset split and reproducibility controls.
 TEST_SPLIT  = 0.10
 VAL_SPLIT   = 0.125
 RANDOM_SEED = 42
@@ -107,6 +117,7 @@ RANDOM_SEED = 42
 ARCHITECTURES = ['resnet', 'cnn_lstm']
 
 # Shared training hyperparameters.
+# These defaults are chosen for the experiment grid rather than per-model tuning.
 BATCH_SIZE    = 64
 NUM_EPOCHS    = 50
 LEARNING_RATE = 1e-3
@@ -132,10 +143,12 @@ LSTM_LAYERS      = 2
 LSTM_DROPOUT     = 0.3
 
 
+# Probability threshold used when converting sigmoid outputs to binary predictions.
 LABEL_THRESHOLD = 0.5
 
 
 # Prefer GPU acceleration when available, with Apple Silicon MPS as the fallback.
+# The training/evaluation entry points import this once and share the same device policy.
 DEVICE = torch.device(
     'cuda' if torch.cuda.is_available() else
     'mps'  if torch.backends.mps.is_available() else
