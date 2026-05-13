@@ -1,12 +1,12 @@
 # ECG Lead Reduction for Multi-label ECG Classification
 
-This repository contains the full experiment pipeline for studying how much 12-lead ECG input can be reduced before multi-label classification performance degrades materially. It preprocesses Challenge-style WFDB ECG records, trains two neural architectures across multiple lead subsets, evaluates the saved checkpoints, and generates comparison and explainability artifacts.
+This repository contains the full experiment pipeline for studying how much 12-lead ECG input can be reduced before multi-label classification performance degrades materially. It preprocesses PhysioNet Challenge 2020-style WFDB ECG records, trains two neural architectures across multiple lead subsets, evaluates the saved checkpoints, and generates comparison and explainability artifacts.
 
 The project is structured as an importable Python package. Run commands from the repository root with `python -m ...`.
 
 ## Study Snapshot
 
-- Data sources: CPSC 2018, Georgia, and PTB-XL folders from the PhysioNet/CinC Challenge 2020 training release.
+- Data sources: CPSC 2018, Georgia, and PTB-XL folders from the PhysioNet Challenge 2020 v1.0.2 training release.
 - Task: multi-label ECG diagnosis classification from fixed-length 12-lead signal windows.
 - Input format: tensors shaped `(batch, leads, samples)` after preprocessing to 5000 samples.
 - Lead subsets: 12, 6, 4, 3, 2, and 1 lead.
@@ -35,7 +35,7 @@ In the current run, the CNN-LSTM gives the strongest 12-lead result, while the 4
 |  \- results/            # per-run JSON plus summary CSV/JSON
 |- data/
 |  |- processed/          # generated combined.npz cache
-|  \- raw/                # local PhysioNet Challenge 2020 data
+|  \- raw/                # local Challenge 2020 training data
 |- ecg_lead_reduction/
 |  |- analysis/           # plotting and Integrated Gradients
 |  |- core/               # paths, labels, lead sets, hyperparameters
@@ -65,7 +65,7 @@ Core dependencies include PyTorch, WFDB, NumPy, SciPy, scikit-learn, pandas, mat
 
 ## Data Setup
 
-The preprocessing code expects the PhysioNet/CinC Challenge 2020 training-folder layout, not the standalone PTB-XL release layout.
+The preprocessing code expects the PhysioNet Challenge 2020 v1.0.2 training-folder layout. Use that release as the single dataset reference for CPSC 2018, Georgia, and PTB-XL.
 
 Expected local structure:
 
@@ -103,13 +103,11 @@ wget -r -N -c -np -nH --cut-dirs=4 -P data/raw/ptb-xl \
   https://physionet.org/files/challenge-2020/1.0.2/training/ptb-xl/
 ```
 
-Reference pages:
+Dataset reference:
 
-- Challenge 2020 dataset: <https://physionet.org/content/challenge-2020/1.0.2/>
-- Challenge 2020 training files: <https://physionet.org/files/challenge-2020/1.0.2/training/>
-- Standalone PTB-XL reference: <https://physionet.org/content/ptb-xl/1.0.3/>
+- PhysioNet Challenge 2020 v1.0.2 training files: <https://physionet.org/files/challenge-2020/1.0.2/training/>
 
-Important: the standalone PTB-XL release uses `records100/` and `records500/` directories. It is not drop-in compatible with this repository because [ecg_lead_reduction/data/preprocess.py](ecg_lead_reduction/data/preprocess.py) searches for Challenge-style `g*/*.hea` files under the paths configured in [ecg_lead_reduction/core/config.py](ecg_lead_reduction/core/config.py).
+Important: use the Challenge 2020 `training/ptb-xl/` folder for PTB-XL. Other PTB-XL downloads may use `records100/` and `records500/` directories, which are not drop-in compatible with this repository because [ecg_lead_reduction/data/preprocess.py](ecg_lead_reduction/data/preprocess.py) searches for Challenge-style `g*/*.hea` files under the paths configured in [ecg_lead_reduction/core/config.py](ecg_lead_reduction/core/config.py).
 
 ## Reproducing the Pipeline
 
